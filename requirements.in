@@ -1,4 +1,5 @@
 black
+brownie-token-tester
 eth-brownie
 flake8
 isort
