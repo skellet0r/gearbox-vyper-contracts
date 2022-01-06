@@ -37,8 +37,6 @@ def deploy_3pool():
 
 
 def deploy_adapters():
-    coins = list(REPLACEMENTS.values())[-3:]
-
     # an adapter needs to be deployed per gearbox pool
     # (each one has different CreditManager + CreditFilter)
     contracts_register = interface.IContractsRegister("0x2C9c23e06ef59B3A53A8E057c972426B56388339")
@@ -53,20 +51,21 @@ def deploy_adapters():
         assert pool.creditManagers(0) == credit_manager.address
 
     # deploy adapters
-    for pool, credit_manager in zip(pools, credit_managers):
-        if pool.underlyingToken() not in coins:
-            continue
+    src = Adapter3Pool._build["source"]
+    for k, v in REPLACEMENTS.items():
+        src = src.replace(k, v)
 
-        src = Adapter3Pool._build["source"]
-        for k, v in REPLACEMENTS.items():
-            src = src.replace(k, v, 1)
-        src = src.replace("0xC38478B0A4bAFE964C3526EEFF534d70E1E09017", credit_manager.address, 1)
-        src = src.replace(
-            "0xcF223eB26dA2Bf147D01b750d2D2393025cEA7Ca", credit_manager.creditFilter(), 1
+    for pool, credit_manager in zip(pools, credit_managers):
+        modified_src = src.replace(
+            "0xC38478B0A4bAFE964C3526EEFF534d70E1E09017", credit_manager.address
+        )
+        modified_src = src.replace(
+            "0xcF223eB26dA2Bf147D01b750d2D2393025cEA7Ca", credit_manager.creditFilter()
         )
 
-        NewAdapter3Pool = compile_source(src, vyper_version="0.3.0").Vyper
+        NewAdapter3Pool = compile_source(modified_src, vyper_version="0.3.0").Vyper
         adapter = NewAdapter3Pool.deploy({"from": dev})
 
+        # write modified source to file for etherscan verification
         with open(f"{adapter.address}-adapter.vy", "w") as f:
-            f.write(src)
+            f.write(modified_src)
